@@ -49,39 +49,6 @@ logger.addHandler(file_handler)
 
 
 
-@router.middleware("http")
-async def logging_middleware(request: Request, call_next):
-    correlation_id = str(uuid.uuid4())
-    start_time = time.time()
-
-    try:
-        logger.info(
-            f"Incoming request {request.method} {request.url.path}",
-            extra={"correlation_id": correlation_id}
-        )
-
-        response = await call_next(request)
-
-        process_time = round((time.time() - start_time) * 1000, 2)
-
-        logger.info(
-            f"Completed {request.method} {request.url.path} "
-            f"status={response.status_code} "
-            f"time_ms={process_time}",
-            extra={"correlation_id": correlation_id}
-        )
-
-        response.headers["X-Correlation-ID"] = correlation_id
-        return response
-
-    except Exception:
-        logger.exception(
-            f"Unhandled error in {request.method} {request.url.path}",
-            extra={"correlation_id": correlation_id}
-        )
-        raise
-
-
 
 
 async def get_db():
