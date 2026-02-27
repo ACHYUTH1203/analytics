@@ -1,8 +1,10 @@
 import uuid
 from sqlalchemy import Column, String, Boolean, DateTime, ForeignKey,Integer
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.sql import func
 from database import Base
+
 
 class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
@@ -12,7 +14,11 @@ class QuizAttempt(Base):
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     submitted_at = Column(DateTime(timezone=True))
     is_completed = Column(Boolean, default=False)
+    owns_box = Column(Boolean)
+    bucket = Column(String)
 
+    engine_version = Column(String)
+    engine_result = Column(JSON)
 
 class QuizAnswer(Base):
     __tablename__ = "quiz_answers"
