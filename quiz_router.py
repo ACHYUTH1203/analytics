@@ -127,8 +127,13 @@ from schemas import StartQuiz
 
 @router.post("/start-quiz")
 async def start_quiz(data: StartQuiz, db: AsyncSession = Depends(get_db)):
+    if data.path == "existing":
+        final_path = "existing"
+    else:
+        final_path = "new"
+
     new_attempt = QuizAttempt(
-        path=data.path,
+        path=final_path,
         is_completed=False
     )
 

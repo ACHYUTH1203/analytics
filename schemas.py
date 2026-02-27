@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 from uuid import UUID
+from typing import Literal
 
 class StartQuiz(BaseModel):
-    path: str
-
+    path: Literal["existing", "new"]
 
 class SaveAnswer(BaseModel):
     attempt_id: UUID
