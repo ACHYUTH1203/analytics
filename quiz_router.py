@@ -67,9 +67,10 @@ async def get_db():
 # -----------------------
 # Request Schema
 # -----------------------
+from uuid import uuid4
 class QuizInput(BaseModel):
-    attempt_id: UUID
-    path: str
+    attempt_id: Optional[UUID] = None
+    path: Optional[str] = "new"
 
     # Structural flow
     timeline: Optional[str] = None
@@ -84,31 +85,79 @@ class QuizInput(BaseModel):
     box_height: Literal["18", "28", "unknown"] = "unknown"
     due_date: Optional[str] = None
 
-
 # -----------------------
 # Quiz Endpoint
 # -----------------------
+# @router.post("/quiz")
+# async def quiz(data: QuizInput, db: AsyncSession = Depends(get_db)):
+#     payload = data.model_dump()
+#     logger.info(f"Quiz payload received: {payload}")
+
+#     # Run central engine
+#     result = master_engine(payload)
+
+#     logger.info(
+#         f"Engine result for attempt={data.attempt_id} "
+#         f"bucket={result.get('bucket')}"
+#     )
+
+#     owns_box_flag = data.path == "existing"
+
+#     # Persist result
+#     await db.execute(
+#         update(QuizAttempt)
+#         .where(QuizAttempt.id == data.attempt_id)
+#         .values(
+#             owns_box=owns_box_flag,
+#             bucket=result.get("bucket"),
+#             engine_version=result.get("engine_version"),
+#             engine_result=result,
+#         )
+#     )
+
+#     await db.commit()
+
+#     logger.info(f"Persisted quiz result for attempt={data.attempt_id}")
+
+#     return result
+
+
+
+
 @router.post("/quiz")
 async def quiz(data: QuizInput, db: AsyncSession = Depends(get_db)):
+
+    # -----------------------------
+    # Auto-create attempt if missing
+    # -----------------------------
+    if not data.attempt_id:
+        new_attempt = QuizAttempt(
+            id=uuid4(),
+            path=data.path or "new",
+            is_completed=False
+        )
+
+        db.add(new_attempt)
+        await db.commit()
+        await db.refresh(new_attempt)
+
+        attempt_id = new_attempt.id
+    else:
+        attempt_id = data.attempt_id
+
     payload = data.model_dump()
-    logger.info(f"Quiz payload received: {payload}")
+    payload["attempt_id"] = attempt_id
+    payload["path"] = data.path or "new"
 
-    # Run central engine
+    # Run engine
     result = master_engine(payload)
-
-    logger.info(
-        f"Engine result for attempt={data.attempt_id} "
-        f"bucket={result.get('bucket')}"
-    )
-
-    owns_box_flag = data.path == "existing"
 
     # Persist result
     await db.execute(
         update(QuizAttempt)
-        .where(QuizAttempt.id == data.attempt_id)
+        .where(QuizAttempt.id == attempt_id)
         .values(
-            owns_box=owns_box_flag,
+            owns_box=(payload["path"] == "existing"),
             bucket=result.get("bucket"),
             engine_version=result.get("engine_version"),
             engine_result=result,
@@ -117,9 +166,10 @@ async def quiz(data: QuizInput, db: AsyncSession = Depends(get_db)):
 
     await db.commit()
 
-    logger.info(f"Persisted quiz result for attempt={data.attempt_id}")
-
-    return result
+    return {
+        "attempt_id": attempt_id,
+        **result
+    }
 
 from sqlalchemy import insert
 from models import QuizAttempt
